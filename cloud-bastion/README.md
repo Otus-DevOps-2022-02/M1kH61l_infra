@@ -1,6 +1,3 @@
-# M1kH61l_infra
-M1kH61l Infra repository
-
 ssh -i ~/.ssh/appuser -A -t appuser@51.250.65.56 ssh 10.128.0.14
 
 sudo nano /etc/hosts
