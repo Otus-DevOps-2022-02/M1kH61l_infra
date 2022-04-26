@@ -678,3 +678,218 @@ ubuntu@fhmbulhctv5cp1tvdvun:~$
 
 
 -------------------------------------------------------------------------
+
+
+++++++++++++++++++++++++++++++++++++++++
++++ ANSIBLE - 1
+++++++++++++++++++++++++++++++++++++++++
+
+Устанавливаем Ansible
+	- Создаем дирикторию ansible с файлом requirements.txt
+	- устанавливаем pip
+	sudo apt-get install pip
+	- устанавливаем ansible
+	pip install -r requirements.txt
+	Successfully built ansible ansible-core
+	Installing collected packages: pyparsing, packaging, resolvelib, ansible-core, ansible
+	Killed
+	
+	- Поднимаем инфраструктуру описанную в stage:
+	terraform apply
+	Для дальнейшей настроек возьмём адрес сервера 
+	reddit-db-terraform-2 - 51.250.14.42
+
+	- Создадим inventory файл с настройками:
+	appserver ansible_host=35.195.186.154 ansible_user=appuser (пользователь по ДЗ terraform-2 был ubuntu, меняю в настройках) \ ansible_private_key_file=~/.ssh/appuser
+	- Убедимся, что Ansible может управлять нашим хостом. Используем команду ansible для вызова модуля ping из командной строки:
+	ansible dbserver -i ./inventory -m ping
+	результат
+	appserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "ping": "pong"
+	}
+	
+	- повторяем для app сервера 51.250.77.42
+	oem@oem-VirtualBox:~/Documents/Git_infra/M1kH61l_infra/ansible$ ansible appserver -i ./inventory -m ping
+	The authenticity of host '51.250.77.42 (51.250.77.42)' can't be established.
+	ECDSA key fingerprint is SHA256:RicPgSqxifI8t6Dwu7hlBO4zkMEVpj+1UmhN/Umc63A.
+	Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+	appserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "ping": "pong"
+	
+	================================================
+	
+	=  Параметры ansible.cfg
+	
+	================================================
+	
+	Создаем файл конфигурации ansible.cfg
+	[defaults]
+inventory = ./inventory
+remote_user = appuser (заменил на ubuntu)
+private_key_file = ~/.ssh/appuser
+host_key_checking = False
+retry_files_enabled = False
+	
+	
+	изменил inventory
+	
+	dbserver ansible_host=51.250.14.42
+	appserver ansible_host=51.250.77.42
+	
+	Проверим работу
+	
+	ansible dbserver -m command -a uptime
+	dbserver | CHANGED | rc=0 >>
+	 20:21:21 up  1:32,  1 user,  load average: 0.00, 0.00, 0.00
+	
+	ansible appserver -m command -a uptime
+	appserver | CHANGED | rc=0 >>
+	 20:22:04 up  1:33,  1 user,  load average: 0.00, 0.00, 0.00
+	
+	============================================
+	
+	= Работа с группами
+	
+	============================================
+	
+	[db]
+	dbserver ansible_host=51.250.14.42
+	[app]
+	appserver ansible_host=51.250.77.42
+	
+	проверим работу
+	
+	ansible app -m ping
+	appserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "ping": "pong"
+	}
+	
+	ansible db -m ping
+	dbserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "ping": "pong"
+	}
+	
+	=====================================
+	= использование YAML inventory
+	=====================================
+	
+	Скопируем данные из inventory в inventory.yml
+	
+	проверим работу:
+	
+	ansible all -m ping -i inventory.yml
+	appserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "ping": "pong"
+	}
+	dbserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "ping": "pong"
+	}
+	
+	
+	===============================
+	= Выполнение команд
+	===============================
+	
+	выполним команды:
+	
+	ansible app -m command -a 'ruby -v'
+	appserver | CHANGED | rc=0 >>
+	ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
+	
+	ansible app -m command -a 'bundler -v'
+	appserver | CHANGED | rc=0 >>
+	Bundler version 1.11.2
+	
+	
+	ansible app -m command -a 'ruby -v; bundler -v'
+	appserver | FAILED | rc=1 >>
+	ruby: invalid option -;  (-h will show valid options) (RuntimeError)non-zero return code
+	oem@oem-VirtualBox:~/Documents/Git_infra/M1kH61l_infra/ansible$  ansible app -m shell -a 'ruby -v; bundler -v'
+	appserver | CHANGED | rc=0 >>
+	ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
+	Bundler version 1.11.2
+	
+	
+	------------------------------------
+	
+	ansible db -m command -a 'systemctl status mongod'
+	
+	dbserver | CHANGED | rc=0 >>
+	● mongod.service - High-performance, schema-free document-oriented database
+	   Loaded: loaded (/lib/systemd/system/mongod.service; enabled; vendor preset: enabled)
+	   Active: active (running) since Sun 2022-04-24 18:48:49 UTC; 2 days ago
+	     Docs: https://docs.mongodb.org/manual
+	 Main PID: 644 (mongod)
+	   CGroup: /system.slice/mongod.service
+	           └─644 /usr/bin/mongod --quiet --config /etc/mongod.conf
+	
+	Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.
+	
+	ansible db -m systemd -a name=mongod
+	dbserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "name": "mongod",
+	    "status": {
+	        "ActiveEnterTimestamp": "Sun 2022-04-24 18:48:49 UTC",
+	        "ActiveEnterTimestampMonotonic": "15652838",
+	        "ActiveExitTimestampMonotonic": "0",
+	        "ActiveState": "active",
+	        "After": "network.target basic.target systemd-journald.socket sysinit.target system.slice",
+	        "AllowIsolate": "no",
+	
+	ansible db -m service -a name=mongod
+	dbserver | SUCCESS => {
+	    "ansible_facts": {
+	        "discovered_interpreter_python": "/usr/bin/python3"
+	    },
+	    "changed": false,
+	    "name": "mongod",
+	    "status": {
+	
+	Нпмшем play book ansible/clone.yml
+	- name: Clone
+	 hosts: app
+	 tasks:
+	 - name: Clone repo
+	 git:
+	 repo: https://github.com/express42/reddit.git
+	 dest: /home/appuser/reddit
+	
+	Выполним ansible-playbook clone.yml
+	PLAY RECAP *********************************************************************
+	appserver                  : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+	
+	
+	
+	Выпоню ansible app -m command -a 'rm -rf ~/reddit'
+	и повторно ansible-playbook clone.yml
+	
+	PLAY RECAP *********************************************************************
+appserver                  : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0  
