@@ -4,13 +4,6 @@ provider "yandex" {
   folder_id = var.folder_id
   zone      = var.zone
 }
-terraform {
-  required_providers {
-    yandex = {
-      source = "yandex-cloud/yandex"
-    }
-  }
-}
 resource "yandex_compute_instance" "app" {
   name = var.name_yc_id
 
