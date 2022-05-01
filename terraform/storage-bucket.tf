@@ -1,9 +1,4 @@
 terraform {
-  required_providers {
-    yandex = {
-      source = "yandex-cloud/yandex"
-    }
-  }
   
   backend "s3" {
     endpoint   = "storage.yandexcloud.net"
