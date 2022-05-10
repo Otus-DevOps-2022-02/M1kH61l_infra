@@ -15,3 +15,6 @@ host someinternalhost
 
 bastion_IP = 51.250.65.56
 someinternalhost_IP = 10.128.0.14
+
+testapp_IP = 51.250.5.137
+testapp_port = 9292
